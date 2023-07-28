@@ -1,36 +1,100 @@
+import streamlit as st
 import numpy as np
-import cv2
+from streamlit_cropper import st_cropper
+from PIL import Image
 
-img = cv2.imread('cluster_test_input5.jpg')
-img = cv2.imread('Example_results_Easygel_test.jpg')
-gray = cv2.cvtColor(img,cv2.COLOR_BGR2GRAY)
+st.set_option('deprecation.showfileUploaderEncoding', False)
 
-# th2 = cv2.adaptiveThreshold(gray,255,cv2.ADAPTIVE_THRESH_GAUSSIAN_C,\
-# cv2.THRESH_BINARY,25,1)
+# Upload an image and set some options for demo purposes
+st.header("Cropper Demo")
+img_file = st.sidebar.file_uploader(label='Upload a file', type=['png', 'jpg'])
+realtime_update = st.sidebar.checkbox(label="Update in Real Time", value=True)
+box_color = st.sidebar.color_picker(label="Box Color", value='#0000FF')
 
-ret, thresh = cv2.threshold(gray,0,255,cv2.THRESH_BINARY_INV+cv2.THRESH_OTSU)
+aspect_choice = st.sidebar.radio(label="Aspect Ratio", options=["1:1", "16:9", "4:3", "2:3", "Free"])
+aspect_dict = {
+    "1:1": (1, 1),
+    "16:9": (16, 9),
+    "4:3": (4, 3),
+    "2:3": (2, 3),
+    "Free": None
+}
+aspect_ratio = aspect_dict[aspect_choice]
 
-connect = 4
-n_labels, labels, stats, centroids = cv2.connectedComponentsWithStats(thresh, connectivity=connect)
+return_type_choice = st.sidebar.radio(label="Return type", options=["Cropped image", "Rect coords"])
+return_type_dict = {
+    "Cropped image": "image",
+    "Rect coords": "box"
+}
+return_type = return_type_dict[return_type_choice]
 
-print(n_labels)
-print(stats)
-size_thresh_min = 5
-size_thresh_max = 5000
-print(stats[:,4])
-print(stats[:,4][np.where((stats[:,4]>size_thresh_min) & (stats[:,4]<size_thresh_max))])
-print(stats[:,4][np.where((stats[:,4]>size_thresh_min) & (stats[:,4]<size_thresh_max))].size)
-# print(np.where(stats[:,4]>size_thresh).size)
+if img_file:
+    img = Image.open(img_file)
+    if not realtime_update:
+        st.write("Double click to save crop")
+    if return_type == 'box':
+        rect = st_cropper(
+            img,
+            realtime_update=realtime_update,
+            box_color=box_color,
+            aspect_ratio=aspect_ratio,
+            return_type=return_type
+        )
+        raw_image = np.asarray(img).astype('uint8')
+        left, top, width, height = tuple(map(int, rect.values()))
+        st.write(rect)
+        masked_image = np.zeros(raw_image.shape, dtype='uint8')
+        masked_image[top:top + height, left:left + width] = raw_image[top:top + height, left:left + width]
+        st.image(Image.fromarray(masked_image), caption='masked image')
+    else:
+        # Get a cropped image from the frontend
+        cropped_img = st_cropper(
+            img,
+            realtime_update=realtime_update,
+            box_color=box_color,
+            aspect_ratio=aspect_ratio,
+            return_type=return_type
+        )
+
+        # Manipulate cropped image at will
+        st.write("Preview")
+        _ = cropped_img.thumbnail((150, 150))
+        st.image(cropped_img)
 
 
-for i in range(1, n_labels):
-    if size_thresh_min <= stats[i, cv2.CC_STAT_AREA] < size_thresh_max:
-        #print(stats[i, cv2.CC_STAT_AREA])
-        x = stats[i, cv2.CC_STAT_LEFT]
-        y = stats[i, cv2.CC_STAT_TOP]
-        w = stats[i, cv2.CC_STAT_WIDTH]
-        h = stats[i, cv2.CC_STAT_HEIGHT]
-        cv2.rectangle(img, (x, y), (x+w, y+h), (0, 0, 255), thickness=1)
+# import numpy as np
+# import cv2
 
-# cv2.imwrite(f"cluster_test_out5_{connect}.jpg", img)
-cv2.imwrite(f"Example_results_Easygel_test_{connect}.jpg", img)
+# img = cv2.imread('cluster_test_input5.jpg')
+# img = cv2.imread('Example_results_Easygel_test.jpg')
+# gray = cv2.cvtColor(img,cv2.COLOR_BGR2GRAY)
+
+# # th2 = cv2.adaptiveThreshold(gray,255,cv2.ADAPTIVE_THRESH_GAUSSIAN_C,\
+# # cv2.THRESH_BINARY,25,1)
+
+# ret, thresh = cv2.threshold(gray,0,255,cv2.THRESH_BINARY_INV+cv2.THRESH_OTSU)
+
+# connect = 4
+# n_labels, labels, stats, centroids = cv2.connectedComponentsWithStats(thresh, connectivity=connect)
+
+# print(n_labels)
+# print(stats)
+# size_thresh_min = 5
+# size_thresh_max = 5000
+# print(stats[:,4])
+# print(stats[:,4][np.where((stats[:,4]>size_thresh_min) & (stats[:,4]<size_thresh_max))])
+# print(stats[:,4][np.where((stats[:,4]>size_thresh_min) & (stats[:,4]<size_thresh_max))].size)
+# # print(np.where(stats[:,4]>size_thresh).size)
+
+
+# for i in range(1, n_labels):
+#     if size_thresh_min <= stats[i, cv2.CC_STAT_AREA] < size_thresh_max:
+#         #print(stats[i, cv2.CC_STAT_AREA])
+#         x = stats[i, cv2.CC_STAT_LEFT]
+#         y = stats[i, cv2.CC_STAT_TOP]
+#         w = stats[i, cv2.CC_STAT_WIDTH]
+#         h = stats[i, cv2.CC_STAT_HEIGHT]
+#         cv2.rectangle(img, (x, y), (x+w, y+h), (0, 0, 255), thickness=1)
+
+# # cv2.imwrite(f"cluster_test_out5_{connect}.jpg", img)
+# cv2.imwrite(f"Example_results_Easygel_test_{connect}.jpg", img)
